@@ -163,7 +163,16 @@ resource "aws_lb" "bastion_lb" {
   internal = var.is_lb_private
   name     = "${local.name_prefix}-lb"
 
-  subnets = var.elb_subnets
+  subnets = var.elb_subnets != null ? var.elb_subnets : null
+
+  dynamic "subnet_mapping" {
+    for_each = var.is_lb_private && var.elb_subnets == null ? var.elb_subnets_mapping : []
+    content {
+      subnet_id            = subnet_mapping.value.subnet_id
+      private_ipv4_address = subnet_mapping.value.private_ipv4_address
+    }
+  }
+
 
   load_balancer_type = "network"
   tags               = merge(var.tags)

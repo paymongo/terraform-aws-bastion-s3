@@ -127,6 +127,16 @@ variable "elb_subnets" {
   default     = []
 }
 
+# Only for private subnets for now
+variable "elb_subnets_mapping" {
+  type = list(object({
+    subnet_id            = string
+    private_ipv4_address = string
+  }))
+  description = "List of private subnet mappings, each containing a subnet ID and its corresponding private IPv4 address. If provided, 'is_lb_private' must be set to true, and 'elb_subnets' must not be specified"
+  default     = []
+}
+
 variable "enable_http_protocol_ipv6" {
   type        = bool
   description = "Enables or disables the IPv6 endpoint for the instance metadata service"
