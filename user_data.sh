@@ -1,5 +1,20 @@
 #!/bin/bash -x
 yum -y update --security
+amazon-linux-extras install epel -y
+yum -y install autoconf wget automake pam-devel libtool
+
+# Build google-authentiactor
+AUTHENTICATOR_LIBPAM_VERSION=1.09
+AUTHENTICATOR_LIBPAM_PREFIX=google-authenticator-libpam-$AUTHENTICATOR_LIBPAM_VERSION
+wget https://github.com/google/google-authenticator-libpam/archive/refs/tags/$AUTHENTICATOR_LIBPAM_VERSION.tar.gz \
+  -O $AUTHENTICATOR_LIBPAM_PREFIX.tar.gz
+tar -xf $AUTHENTICATOR_LIBPAM_PREFIX.tar.gz
+cd $AUTHENTICATOR_LIBPAM_PREFIX && \
+  ./bootstrap.sh && \
+  ./configure --exec-prefix=/usr && \
+  make && \
+  make install && \
+  cd ../
 
 ##########################
 ## ENABLE SSH RECORDING ##
