@@ -245,7 +245,7 @@ while read line; do
 
       if [[ "$line" == "public-keys/no2fa-"* ]]; then
         echo "no2fa user. Adding $USER_NAME to group no2fa"
-        usermod -aG no2fa $USER_NAME
+        /usr/sbin/usermod -aG no2fa $USER_NAME
       fi
     fi
 
