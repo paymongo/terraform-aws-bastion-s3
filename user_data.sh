@@ -16,6 +16,37 @@ cd $AUTHENTICATOR_LIBPAM_PREFIX && \
   make install && \
   cd ../
 
+cat > /etc/pam.d/sshd << 'EOF'
+#%PAM-1.0
+auth       required     /usr/lib/security/pam_google_authenticator.so nullok
+auth       required     pam_permit.so
+
+auth       required     pam_sepermit.so
+#auth       substack     password-auth
+auth       include      postlogin
+# Used with polkit to reauthorize users in remote sessions
+-auth      optional     pam_reauthorize.so prepare
+account    required     pam_nologin.so
+account    include      password-auth
+password   include      password-auth
+# pam_selinux.so close should be the first session rule
+session    required     pam_selinux.so close
+session    required     pam_loginuid.so
+# pam_selinux.so open should only be followed by sessions to be executed in the user context
+session    required     pam_selinux.so open env_params
+session    required     pam_namespace.so
+session    optional     pam_keyinit.so force revoke
+#session    include      password-auth
+session    include      postlogin
+# Used with polkit to reauthorize users in remote sessions
+-session   optional     pam_reauthorize.so prepare
+EOF
+
+# Enable mfa
+sed -i "s/ChallengeResponseAuthentication no/ChallengeResponseAuthentication yes/g" /etc/ssh/sshd_config
+echo -e "\\nAuthenticationMethods publickey,keyboard-interactive" >> /etc/ssh/sshd_config
+
+
 ##########################
 ## ENABLE SSH RECORDING ##
 ##########################
@@ -32,16 +63,70 @@ setfacl -Rdm other:0 /var/log/bastion
 sed -i "s/#Port 22/Port ${public_ssh_port}/g" /etc/ssh/sshd_config
 
 # Make OpenSSH execute a custom script on logins
-echo -e "\\nForceCommand /usr/bin/bastion/shell" >> /etc/ssh/sshd_config
+echo -e "\\nForceCommand /usr/bin/fc" >> /etc/ssh/sshd_config
 
 # Block some SSH features that bastion host users could use to circumvent the solution
 awk '!/X11Forwarding/' /etc/ssh/sshd_config > temp && mv temp /etc/ssh/sshd_config
 echo "X11Forwarding no" >> /etc/ssh/sshd_config
 
-mkdir /usr/bin/bastion
+cat > /usr/bin/fc << 'EOF'
+#!/bin/bash
+function _sigint() {
+  echo -e '\nAborted'
+  exit 1
+}
 
-cat > /usr/bin/bastion/shell << 'EOF'
+trap _sigint SIGINT
 
+for script in /etc/fc.d/* ; do
+  if [ -r $script ] && [ -x $script ]; then
+    . $script
+    if [ $? -ne 0 ]; then
+      echo "Access denied"
+      exit 1
+    fi
+  fi
+done
+EOF
+chmod a+x /usr/bin/fc
+
+mkdir /etc/fc.d
+
+cat > /etc/fc.d/0.setup-google-authenticator.sh << 'EOF'
+#!/bin/bash
+
+# Don't force google-authenticator if the user is in no2fa group
+if groups "$USER" | grep -q 'no2fa'; then
+    echo "no2fa user detected: skipping google-authenticator..."
+else
+        until [ -f "${HOME}/.google_authenticator" ]; do
+          if ! [[ -t 1 ]] || [[ "$SSH_ORIGINAL_COMMAND" =~ ^(rsync|nc|scp) ]]; then
+            echo "MFA setup required"
+            exit 1
+          else
+            echo -e "\nWelcome $USER. Please follow the prompts to setup your MFA device..."
+            umask 0066
+            google-authenticator -td -r 10 -R 30 -w 10 -f
+            if [ $? -ne 0 ]; then
+              echo "MFA setup failed"
+              exit 1;
+            fi
+
+            if [ -f .google_authenticator ]; then
+              chmod 600 .google_authenticator
+              echo "MFA enabled for $USER"
+            else
+              echo "MFA setup is mandatory"
+            fi
+          fi
+        done
+
+        trap - SIGINT
+fi
+EOF
+chmod a+x /etc/fc.d/0.setup-google-authenticator.sh
+
+cat > /etc/fc.d/9.shell << 'EOF'
 # Check that the SSH client did not supply a command
 if [[ -z $SSH_ORIGINAL_COMMAND ]]; then
 
@@ -74,11 +159,8 @@ else
     exit 1
   fi
 fi
-
 EOF
-
-# Make the custom script executable
-chmod a+x /usr/bin/bastion/shell
+chmod a+x /etc/fc.d/9.shell
 
 # Bastion host users could overwrite and tamper with an existing log file using "script" if
 # they knew the exact file name. I take several measures to obfuscate the file name:
@@ -112,6 +194,13 @@ aws s3 cp $LOG_DIR s3://${bucket_name}/logs/ --sse --region ${aws_region} --recu
 EOF
 
 chmod 700 /usr/bin/bastion/sync_s3
+
+#######################################
+## CREATE no2fa GROUP
+#######################################
+groupadd no2fa
+# You can add 2fa for ec2-user by executing google-authenticator command
+usermod -aG no2fa ec2-user
 
 #######################################
 ## SYNCHRONIZE USERS AND PUBLIC KEYS ##
