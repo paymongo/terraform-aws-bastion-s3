@@ -99,29 +99,29 @@ cat > /etc/fc.d/0.setup-google-authenticator.sh << 'EOF'
 if groups "$USER" | grep -q 'no2fa'; then
     echo "no2fa user detected: skipping google-authenticator..."
 else
-        until [ -f "${HOME}/.google_authenticator" ]; do
-          if ! [[ -t 1 ]] || [[ "$SSH_ORIGINAL_COMMAND" =~ ^(rsync|nc|scp) ]]; then
-            echo "MFA setup required"
-            exit 1
-          else
-            echo -e "\nWelcome $USER. Please follow the prompts to setup your MFA device..."
-            umask 0066
-            google-authenticator -td -r 10 -R 30 -w 10 -f
-            if [ $? -ne 0 ]; then
-              echo "MFA setup failed"
-              exit 1;
-            fi
+    until [ -f "$HOME/.google_authenticator" ]; do
+      if ! [[ -t 1 ]] || [[ "$SSH_ORIGINAL_COMMAND" =~ ^(rsync|nc|scp) ]]; then
+        echo "MFA setup required"
+        exit 1
+      else
+        echo -e "\nWelcome $USER. Please follow the prompts to setup your MFA device..."
+        umask 0066
+        google-authenticator -td -r 10 -R 30 -w 10 -f
+        if [ $? -ne 0 ]; then
+          echo "MFA setup failed"
+          exit 1;
+        fi
 
-            if [ -f .google_authenticator ]; then
-              chmod 600 .google_authenticator
-              echo "MFA enabled for $USER"
-            else
-              echo "MFA setup is mandatory"
-            fi
-          fi
-        done
+        if [ -f .google_authenticator ]; then
+          chmod 600 .google_authenticator
+          echo "MFA enabled for $USER"
+        else
+          echo "MFA setup is mandatory"
+        fi
+      fi
+    done
 
-        trap - SIGINT
+    trap - SIGINT
 fi
 EOF
 chmod a+x /etc/fc.d/0.setup-google-authenticator.sh
