@@ -200,6 +200,7 @@ chmod 700 /usr/bin/bastion/sync_s3
 #######################################
 groupadd no2fa
 # You can add 2fa for ec2-user by executing google-authenticator command
+usermod -aG no2fa root
 usermod -aG no2fa ec2-user
 
 #######################################
