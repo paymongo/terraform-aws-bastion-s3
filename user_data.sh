@@ -220,7 +220,7 @@ LOG_FILE="/var/log/bastion/users_changelog.txt"
 # The function returns the user name from the public key file name.
 # Example: public-keys/sshuser.pub => sshuser
 get_user_name () {
-  echo "$1" | sed -e "s/.*\///g" | sed -e "s/\.pub//g"
+	echo "$1" | sed -e "s/.*\///g" | sed -e 's/^no2fa-//' | sed -e "s/\.pub//g"
 }
 
 # For each public key available in the S3 bucket
@@ -239,6 +239,11 @@ while read line; do
       chown $USER_NAME:$USER_NAME /home/$USER_NAME/.ssh && \
       echo "$line" >> ~/keys_installed && \
       echo "`date --date="today" "+%Y-%m-%d %H-%M-%S"`: Creating user account for $USER_NAME ($line)" >> $LOG_FILE
+
+      if [[ "$line" == "public-keys/no2fa-"* ]]; then
+        echo "no2fa user. Adding $USER_NAME to group no2fa"
+        usermod -aG no2fa $USER_NAME
+      fi
     fi
 
     # Copy the public key from S3, if an user account was created from this key
