@@ -183,6 +183,8 @@ service sshd restart
 ## EXPORT LOG FILES TO S3 ##
 ############################
 
+mkdir /usr/bin/bastion
+
 cat > /usr/bin/bastion/sync_s3 << 'EOF'
 #!/usr/bin/env bash
 
