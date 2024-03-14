@@ -179,8 +179,8 @@ resource "aws_lb" "bastion_lb" {
 
   lifecycle {
     precondition {
-      condition     = !var.create_elb || (length(var.elb_subnets) > 0 && var.is_lb_private != null)
-      error_message = "elb_subnets and is_lb_private must be set when creating a load balancer"
+      condition     = !var.create_elb || ((length(var.elb_subnets) > 0 || length(var.elb_subnets_mapping) > 0) && var.is_lb_private != null)
+      error_message = "elb_subnets/elb_subnets_mapping and is_lb_private must be set when creating a load balancer"
     }
   }
 }
