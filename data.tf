@@ -10,7 +10,7 @@ data "aws_ami" "amazon-linux-2" {
 }
 
 data "aws_subnet" "subnets" {
-  count = var.elb_subnets != [] ? length(var.elb_subnets) : length(var.elb_subnets_mapping)
+  count = length(var.elb_subnets) != 0 ? length(var.elb_subnets) : length(var.elb_subnets_mapping)
 
-  id = var.elb_subnets != [] ? var.elb_subnets[count.index] : var.elb_subnets_mapping[count.index].subnet_id
+  id = length(var.elb_subnets) != 0 ? var.elb_subnets[count.index] : var.elb_subnets_mapping[count.index].subnet_id
 }
