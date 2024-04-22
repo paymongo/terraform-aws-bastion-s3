@@ -109,6 +109,12 @@ variable "create_elb" {
   default     = true
 }
 
+variable "create_security_group" {
+  type        = bool
+  description = "Create a security group for the bastion"
+  default     = true
+}
+
 variable "disk_encrypt" {
   type        = bool
   description = "Instance EBS encryption"
